@@ -22,6 +22,13 @@ nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:re
 input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;font:inherit;background:white}.field{margin-bottom:12px}.field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px}
 dialog{border:0;border-radius:18px;width:min(92vw,520px);padding:0}dialog::backdrop{background:rgba(0,0,0,.4)}.modal{padding:17px}.modal h2{margin-top:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px}
 .hidden{display:none!important}.holiday{display:grid;grid-template-columns:135px 1fr 42px;gap:6px;margin-bottom:7px}.note{font-size:12px;color:var(--muted);line-height:1.5}.empty{text-align:center;color:var(--muted);padding:32px 10px}
+.calendar-toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center}.calendar-toolbar button.active{background:var(--p);color:white}
+.calendar-nav{display:flex;gap:7px;margin-left:auto}.calendar-title{font-weight:800;margin:4px 0 12px}
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.month-head{font-size:11px;text-align:center;color:var(--muted);font-weight:700}
+.month-day{min-height:92px;background:white;border:1px solid var(--line);border-radius:12px;padding:7px}.month-day.empty-day{background:transparent;border-style:dashed}.month-day.today{border:2px solid var(--p)}
+.month-number{font-size:12px;font-weight:800;margin-bottom:5px}.month-item{font-size:10px;line-height:1.25;padding:4px 5px;border-radius:7px;background:var(--p2);margin-bottom:4px;overflow:hidden}.month-item.done{background:#dff4e1;color:var(--ok)}
+.day-card{background:white;border:1px solid var(--line);border-radius:14px;padding:14px}.day-card h3{margin:0 0 8px}.week-grid{display:grid;gap:8px}
+@media(max-width:520px){.month-grid{gap:3px}.month-day{min-height:74px;padding:5px}.month-item{font-size:9px;padding:3px 4px}.calendar-nav{width:100%;margin-left:0}}
 </style>
 </head>
 <body>
@@ -37,7 +44,16 @@ dialog{border:0;border-radius:18px;width:min(92vw,520px);padding:0}dialog::backd
 <div id="list"></div>
 </section>
 
-<section id="view-calendar" class="hidden"><div id="calendar"></div></section>
+<section id="view-calendar" class="hidden">
+<div class="calendar-toolbar">
+<button class="active" data-calview="day">Día</button>
+<button data-calview="week">Semana</button>
+<button data-calview="month">Mes</button>
+<div class="calendar-nav"><button id="prevPeriod">‹</button><button id="todayPeriod">Hoy</button><button id="nextPeriod">›</button></div>
+</div>
+<div class="calendar-title" id="calendarTitle"></div>
+<div id="calendar"></div>
+</section>
 
 <section id="view-settings" class="hidden">
 <div class="card">
@@ -93,7 +109,7 @@ const holidaysDefault=[
 {date:'2027-05-27',name:'Corpus Christi'},
 {date:'2027-05-31',name:'Día de Castilla-La Mancha'}
 ];
-let filter='pending';
+let filter='pending';let calendarView='day';let calendarCursor=new Date();
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function d(s){return new Date(s+'T12:00:00')}
 function iso(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
@@ -133,9 +149,32 @@ function renderList(){
  if(filter==='pending')arr=arr.filter(x=>!x.done);if(filter==='done')arr=arr.filter(x=>x.done);if(filter==='tests')arr=arr.filter(x=>x.type==='test'||x.type==='simulation');
  $('#list').innerHTML=arr.length?arr.map(x=>`<article class="card" data-date="${x.date}"><div class="row"><div><div class="date">${fmt(x.date)}</div><div class="small">${x.date}</div></div><span class="badge ${x.done?'done':''}">${x.done?'✓ Hecho':x.type==='study'?'Vuelta '+x.round:x.type==='test'?'Test':x.type==='simulation'?'Simulacro':'Descanso'}</span></div><div class="task">${esc(x.title)}</div>${x.notes?`<div class="small">${esc(x.notes)}</div>`:''}<div class="actions"><button data-action="toggle" data-id="${x.id}">${x.done?'Desmarcar':'Completar'}</button><button data-action="edit" data-id="${x.id}">Editar / mover</button><button class="danger" data-action="delete" data-id="${x.id}">Eliminar</button></div></article>`).join(''):'<div class="empty">No hay sesiones en esta vista.</div>';
 }
+function startOfWeek(date){const x=new Date(date);const day=x.getDay()||7;x.setDate(x.getDate()-day+1);x.setHours(12,0,0,0);return x}
+function sameDay(a,b){return iso(a)===iso(b)}
+function sessionsFor(date){return state.sessions.filter(x=>x.date===iso(date)).sort((a,b)=>a.title.localeCompare(b.title))}
 function renderCalendar(){
- const groups={};state.sessions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>(groups[x.date]||(groups[x.date]=[])).push(x));
- $('#calendar').innerHTML=Object.keys(groups).map(date=>`<div class="card"><div class="date">${fmt(date)}</div>${groups[date].map(x=>`<div class="task">${x.done?'✓ ':''}${esc(x.title)}</div>`).join('')}</div>`).join('');
+ const cal=$('#calendar'),title=$('#calendarTitle');cal.innerHTML='';
+ if(calendarView==='day'){
+   title.textContent=fmt(iso(calendarCursor));
+   const items=sessionsFor(calendarCursor);
+   cal.innerHTML=items.length?items.map(x=>`<div class="day-card"><div class="row"><span class="badge ${x.done?'done':''}">${x.done?'✓ Hecho':x.type==='study'?'Vuelta '+x.round:x.type==='test'?'Test':x.type==='simulation'?'Simulacro':'Descanso'}</span><span class="small">${x.date}</span></div><div class="task">${esc(x.title)}</div>${x.notes?`<div class="small">${esc(x.notes)}</div>`:''}</div>`).join(''):'<div class="empty">No hay sesiones este día.</div>';
+ }
+ if(calendarView==='week'){
+   const start=startOfWeek(calendarCursor),end=new Date(start);end.setDate(end.getDate()+6);
+   title.textContent=start.toLocaleDateString('es-ES',{day:'numeric',month:'short'})+' – '+end.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+   let out='<div class="week-grid">';
+   for(let i=0;i<7;i++){const dt=new Date(start);dt.setDate(start.getDate()+i);const items=sessionsFor(dt);out+=`<div class="card"><div class="date">${fmt(iso(dt))}</div>${items.length?items.map(x=>`<div class="task">${x.done?'✓ ':''}${esc(x.title)}</div>`).join(''):'<div class="small">Sin sesión</div>'}</div>`}
+   cal.innerHTML=out+'</div>';
+ }
+ if(calendarView==='month'){
+   const year=calendarCursor.getFullYear(),month=calendarCursor.getMonth(),first=new Date(year,month,1,12),last=new Date(year,month+1,0,12);
+   title.textContent=first.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+   const headers=['L','M','X','J','V','S','D'];let out='<div class="month-grid">'+headers.map(h=>`<div class="month-head">${h}</div>`).join('');
+   const offset=(first.getDay()||7)-1;
+   for(let i=0;i<offset;i++)out+='<div class="month-day empty-day"></div>';
+   for(let day=1;day<=last.getDate();day++){const dt=new Date(year,month,day,12),items=sessionsFor(dt);out+=`<div class="month-day ${sameDay(dt,new Date())?'today':''}"><div class="month-number">${day}</div>${items.slice(0,3).map(x=>`<div class="month-item ${x.done?'done':''}">${x.done?'✓ ':''}${esc(x.title)}</div>`).join('')}${items.length>3?`<div class="small">+${items.length-3} más</div>`:''}</div>`}
+   cal.innerHTML=out+'</div>';
+ }
 }
 function renderHolidays(){
  $('#holidays').innerHTML=state.holidays.map((h,i)=>`<div class="holiday"><input type="date" value="${h.date}" data-hi="${i}" data-hk="date"><input value="${esc(h.name)}" data-hi="${i}" data-hk="name"><button class="danger" data-remove-h="${i}">×</button></div>`).join('');
@@ -155,6 +194,10 @@ $('#holidays').addEventListener('click',e=>{const i=e.target.dataset.removeH;if(
 $('#exportBtn').addEventListener('click',()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='copia-oposicion-psicologia.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
 $('#importFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=JSON.parse(r.result);persist();alert('Datos importados correctamente.')}catch(err){alert('El archivo no es válido.')}};r.readAsText(f)});
 $('#resetBtn').addEventListener('click',()=>{if(confirm('¿Borrar todos los cambios?')){state=initial();persist()}});
+$$('[data-calview]').forEach(b=>b.addEventListener('click',()=>{$$('[data-calview]').forEach(x=>x.classList.remove('active'));b.classList.add('active');calendarView=b.dataset.calview;renderCalendar()}));
+$('#prevPeriod').addEventListener('click',()=>{if(calendarView==='day')calendarCursor.setDate(calendarCursor.getDate()-1);if(calendarView==='week')calendarCursor.setDate(calendarCursor.getDate()-7);if(calendarView==='month')calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar()});
+$('#nextPeriod').addEventListener('click',()=>{if(calendarView==='day')calendarCursor.setDate(calendarCursor.getDate()+1);if(calendarView==='week')calendarCursor.setDate(calendarCursor.getDate()+7);if(calendarView==='month')calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar()});
+$('#todayPeriod').addEventListener('click',()=>{calendarCursor=new Date();renderCalendar()});
 render();
 })();
 </script>
