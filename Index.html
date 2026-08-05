@@ -1,1 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mi oposición · Psicología</title>
+<style>
+:root{--bg:#f6f3fb;--card:#fff;--p:#6750a4;--p2:#eee8f7;--text:#25212b;--muted:#746e7b;--line:#e5dfeb;--ok:#2e7d32;--danger:#b3261e}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{position:sticky;top:0;background:rgba(246,243,251,.96);backdrop-filter:blur(10px);padding:16px;border-bottom:1px solid var(--line);z-index:5}
+h1{font-size:21px;margin:0}.sub{font-size:13px;color:var(--muted);margin-top:4px}
+main{max-width:760px;margin:auto;padding:14px 14px 95px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.stat{text-align:center;background:white;border:1px solid var(--line);border-radius:14px;padding:10px}.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--muted)}
+.progress{height:8px;background:#eae4ef;border-radius:999px;overflow:hidden;margin-bottom:14px}.progress div{height:100%;background:var(--p)}
+button,.btn{border:0;border-radius:999px;padding:10px 13px;font-weight:700;background:var(--p2);color:var(--p);font-size:14px}
+.primary{background:var(--p);color:white}.danger{background:#f9dedc;color:var(--danger)}
+.toolbar,.actions,.tabs{display:flex;gap:7px;flex-wrap:wrap}.toolbar{margin-bottom:12px}.tabs{overflow:auto;margin-bottom:12px}.tabs button.active{background:var(--p);color:white}
+.row{display:flex;justify-content:space-between;gap:10px}.date{font-weight:800}.small{font-size:12px;color:var(--muted)}.task{font-weight:700;margin:9px 0 5px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--p2);color:var(--p);font-size:11px;font-weight:800}.done{background:#dff4e1;color:var(--ok)}
+.actions{margin-top:10px}.actions button{font-size:12px;padding:8px 10px}
+nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(4,1fr);background:white;border-top:1px solid var(--line);padding:7px 6px max(7px,env(safe-area-inset-bottom));z-index:6}nav button{background:transparent;color:var(--muted);border-radius:12px;padding:8px 2px;font-size:11px}nav button.active{background:var(--p2);color:var(--p)}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;font:inherit;background:white}.field{margin-bottom:12px}.field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px}
+dialog{border:0;border-radius:18px;width:min(92vw,520px);padding:0}dialog::backdrop{background:rgba(0,0,0,.4)}.modal{padding:17px}.modal h2{margin-top:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+.hidden{display:none!important}.holiday{display:grid;grid-template-columns:135px 1fr 42px;gap:6px;margin-bottom:7px}.note{font-size:12px;color:var(--muted);line-height:1.5}.empty{text-align:center;color:var(--muted);padding:32px 10px}
+</style>
+</head>
+<body>
+<header><h1>Mi oposición · Psicología</h1><div class="sub" id="subtitle"></div></header>
+<main>
+<section id="view-home">
+<div class="stats"><div class="stat"><b id="done">0</b><span>hechas</span></div><div class="stat"><b id="pending">0</b><span>pendientes</span></div><div class="stat"><b id="remaining">0</b><span>días restantes</span></div></div>
+<div class="progress"><div id="bar"></div></div>
+<div class="toolbar"><button class="primary" id="addBtn">+ Añadir sesión</button><button id="todayBtn">Ir a hoy</button></div>
+<div class="tabs">
+<button class="active" data-filter="pending">Pendientes</button><button data-filter="all">Todo</button><button data-filter="done">Hecho</button><button data-filter="tests">Tests</button>
+</div>
+<div id="list"></div>
+</section>
 
+<section id="view-calendar" class="hidden"><div id="calendar"></div></section>
+
+<section id="view-settings" class="hidden">
+<div class="card">
+<h2 style="margin-top:0">Configuración</h2>
+<div class="field"><label>Fecha final</label><input id="endDate" type="date"></div>
+<div class="field"><label>Número de temas</label><input id="topicCount" type="number" min="1"></div>
+<div class="note">Se estudia lunes, miércoles, jueves y viernes. Martes y fines de semana quedan libres.</div><br>
+<button class="primary" id="regenBtn">Regenerar calendario</button>
+</div>
+<h2>Festivos y días libres</h2><div id="holidays"></div><button id="addHolidayBtn">+ Añadir día libre</button>
+<h2>Copias de seguridad</h2>
+<div class="toolbar"><button id="exportBtn">Exportar</button><label class="btn">Importar<input id="importFile" type="file" accept=".json" hidden></label><button class="danger" id="resetBtn">Restablecer</button></div>
+<p class="note">Los cambios se guardan en este navegador. Conviene exportar una copia periódicamente.</p>
+</section>
+
+<section id="view-info" class="hidden"><div class="card">
+<h2 style="margin-top:0">Repartición inicial</h2>
+<p><b>Primera vuelta:</b> 2 temas por sesión.</p>
+<p><b>Segunda vuelta:</b> 2 temas por sesión.</p>
+<p><b>Tercera vuelta:</b> 3 temas por sesión.</p>
+<p>Cada cuatro sesiones de temario se intercala un test o repaso. Tras terminar las tres vueltas, los huecos restantes pasan a simulacros.</p>
+<p>Puedes editar, mover, completar o eliminar cualquier sesión.</p>
+</div></section>
+</main>
+
+<nav>
+<button class="active" data-view="home">Hoy</button><button data-view="calendar">Calendario</button><button data-view="settings">Ajustes</button><button data-view="info">Información</button>
+</nav>
+
+<dialog id="dialog"><form method="dialog" class="modal" id="form">
+<h2 id="dialogTitle">Editar sesión</h2><input type="hidden" id="editId">
+<div class="field"><label>Fecha</label><input id="editDate" type="date" required></div>
+<div class="field"><label>Tipo</label><select id="editType"><option value="study">Temario</option><option value="test">Test / repaso</option><option value="simulation">Simulacro</option><option value="rest">Descanso</option></select></div>
+<div class="field"><label>Contenido</label><input id="editTitle" required></div>
+<div class="field"><label>Notas</label><textarea id="editNotes" rows="3"></textarea></div>
+<div class="modal-actions"><button type="button" id="cancelBtn">Cancelar</button><button class="primary" type="submit">Guardar</button></div>
+</form></dialog>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const KEY='oposicion-psicologia-standalone-v2';
+const holidaysDefault=[
+{date:'2026-09-08',name:'Virgen de los Llanos'},
+{date:'2026-10-12',name:'Fiesta Nacional'},
+{date:'2026-11-02',name:'Todos los Santos (traslado)'},
+{date:'2026-12-08',name:'Inmaculada Concepción'},
+{date:'2026-12-25',name:'Navidad'},
+{date:'2027-01-01',name:'Año Nuevo'},
+{date:'2027-01-06',name:'Epifanía'},
+{date:'2027-03-25',name:'Jueves Santo'},
+{date:'2027-03-26',name:'Viernes Santo'},
+{date:'2027-05-27',name:'Corpus Christi'},
+{date:'2027-05-31',name:'Día de Castilla-La Mancha'}
+];
+let filter='pending';
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function d(s){return new Date(s+'T12:00:00')}
+function iso(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function fmt(s){return d(s).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function studyDates(start,end,hols){let a=[],x=d(start),last=d(end),blocked=new Set(hols.map(h=>h.date));while(x<=last){if([1,3,4,5].includes(x.getDay())&&!blocked.has(iso(x)))a.push(iso(x));x.setDate(x.getDate()+1)}return a}
+function generate(settings,hols){
+ const dates=studyDates(settings.startDate,settings.endDate,hols), content=[];
+ for(let round=1;round<=3;round++){const per=round===3?3:2;for(let t=1;t<=settings.topicCount;t+=per){const e=Math.min(settings.topicCount,t+per-1);content.push({type:'study',round,title:'Vuelta '+round+' · Tema'+(t===e?' ':'s ')+t+(t===e?'':'–'+e),notes:'',done:false})}}
+ let result=[],ci=0,studySinceTest=0,sim=1;
+ for(const date of dates){
+   let item;
+   if(ci<content.length){
+     if(studySinceTest===4){item={type:'test',round:content[ci].round,title:'Test y repaso · Vuelta '+content[ci].round,notes:'Repasar errores y anotar temas débiles.',done:false};studySinceTest=0}
+     else{item=content[ci++];studySinceTest++}
+   }else item={type:'simulation',round:3,title:'Simulacro '+sim+++' + repaso de errores',notes:'Cronometrado. Registrar resultado.',done:false};
+   result.push(Object.assign({id:uid(),date},item));
+ }
+ while(ci<content.length){let idx=-1;for(let i=result.length-1;i>=0;i--){if(result[i].type==='test'){idx=i;break}}if(idx<0)break;result[idx]=Object.assign({id:result[idx].id,date:result[idx].date},content[ci++])}
+ return result;
+}
+function initial(){const s={settings:{startDate:'2026-08-05',endDate:'2027-06-30',topicCount:105},holidays:holidaysDefault,sessions:[]};s.sessions=generate(s.settings,s.holidays);return s}
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||initial()}catch(e){state=initial()}
+function persist(){localStorage.setItem(KEY,JSON.stringify(state));render()}
+function render(){
+ const done=state.sessions.filter(x=>x.done).length,total=state.sessions.length;
+ $('#done').textContent=done;$('#pending').textContent=total-done;
+ $('#remaining').textContent=Math.max(0,Math.ceil((d(state.settings.endDate)-new Date())/86400000));
+ $('#bar').style.width=(total?done/total*100:0)+'%';
+ $('#subtitle').textContent=state.settings.topicCount+' temas · 3 vueltas · hasta '+d(state.settings.endDate).toLocaleDateString('es-ES');
+ $('#endDate').value=state.settings.endDate;$('#topicCount').value=state.settings.topicCount;
+ renderList();renderCalendar();renderHolidays();
+}
+function renderList(){
+ let arr=state.sessions.slice().sort((a,b)=>a.date.localeCompare(b.date));
+ if(filter==='pending')arr=arr.filter(x=>!x.done);if(filter==='done')arr=arr.filter(x=>x.done);if(filter==='tests')arr=arr.filter(x=>x.type==='test'||x.type==='simulation');
+ $('#list').innerHTML=arr.length?arr.map(x=>`<article class="card" data-date="${x.date}"><div class="row"><div><div class="date">${fmt(x.date)}</div><div class="small">${x.date}</div></div><span class="badge ${x.done?'done':''}">${x.done?'✓ Hecho':x.type==='study'?'Vuelta '+x.round:x.type==='test'?'Test':x.type==='simulation'?'Simulacro':'Descanso'}</span></div><div class="task">${esc(x.title)}</div>${x.notes?`<div class="small">${esc(x.notes)}</div>`:''}<div class="actions"><button data-action="toggle" data-id="${x.id}">${x.done?'Desmarcar':'Completar'}</button><button data-action="edit" data-id="${x.id}">Editar / mover</button><button class="danger" data-action="delete" data-id="${x.id}">Eliminar</button></div></article>`).join(''):'<div class="empty">No hay sesiones en esta vista.</div>';
+}
+function renderCalendar(){
+ const groups={};state.sessions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>(groups[x.date]||(groups[x.date]=[])).push(x));
+ $('#calendar').innerHTML=Object.keys(groups).map(date=>`<div class="card"><div class="date">${fmt(date)}</div>${groups[date].map(x=>`<div class="task">${x.done?'✓ ':''}${esc(x.title)}</div>`).join('')}</div>`).join('');
+}
+function renderHolidays(){
+ $('#holidays').innerHTML=state.holidays.map((h,i)=>`<div class="holiday"><input type="date" value="${h.date}" data-hi="${i}" data-hk="date"><input value="${esc(h.name)}" data-hi="${i}" data-hk="name"><button class="danger" data-remove-h="${i}">×</button></div>`).join('');
+}
+$('#list').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const id=b.dataset.id,a=b.dataset.action,x=state.sessions.find(s=>s.id===id);if(a==='toggle'){x.done=!x.done;persist()}if(a==='edit')openEdit(x);if(a==='delete'&&confirm('¿Eliminar esta sesión?')){state.sessions=state.sessions.filter(s=>s.id!==id);persist()}});
+$$('.tabs button').forEach(b=>b.addEventListener('click',()=>{$$('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');filter=b.dataset.filter;renderList()}));
+$$('nav button').forEach(b=>b.addEventListener('click',()=>{$$('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');$$('main section').forEach(s=>s.classList.add('hidden'));$('#view-'+b.dataset.view).classList.remove('hidden')}));
+function openEdit(x){$('#editId').value=x.id;$('#editDate').value=x.date;$('#editType').value=x.type;$('#editTitle').value=x.title;$('#editNotes').value=x.notes||'';$('#dialogTitle').textContent='Editar sesión';$('#dialog').showModal()}
+$('#addBtn').addEventListener('click',()=>{$('#editId').value='';$('#editDate').value=iso(new Date());$('#editType').value='study';$('#editTitle').value='';$('#editNotes').value='';$('#dialogTitle').textContent='Nueva sesión';$('#dialog').showModal()});
+$('#cancelBtn').addEventListener('click',()=>$('#dialog').close());
+$('#form').addEventListener('submit',e=>{e.preventDefault();const id=$('#editId').value,obj={date:$('#editDate').value,type:$('#editType').value,title:$('#editTitle').value.trim(),notes:$('#editNotes').value.trim()};if(id)Object.assign(state.sessions.find(x=>x.id===id),obj);else state.sessions.push(Object.assign({id:uid(),done:false,round:null},obj));state.sessions.sort((a,b)=>a.date.localeCompare(b.date));$('#dialog').close();persist()});
+$('#todayBtn').addEventListener('click',()=>{filter='all';$$('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.filter==='all'));renderList();setTimeout(()=>{const el=document.querySelector(`[data-date="${iso(new Date())}"]`);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});else alert('Hoy no hay sesión programada.')},50)});
+$('#regenBtn').addEventListener('click',()=>{if(!confirm('Esto sustituirá toda la planificación actual. ¿Continuar?'))return;state.settings.endDate=$('#endDate').value;state.settings.topicCount=Number($('#topicCount').value);state.sessions=generate(state.settings,state.holidays);persist()});
+$('#addHolidayBtn').addEventListener('click',()=>{state.holidays.push({date:iso(new Date()),name:'Nuevo día libre'});persist()});
+$('#holidays').addEventListener('change',e=>{const i=e.target.dataset.hi,k=e.target.dataset.hk;if(i!==undefined){state.holidays[Number(i)][k]=e.target.value;localStorage.setItem(KEY,JSON.stringify(state))}});
+$('#holidays').addEventListener('click',e=>{const i=e.target.dataset.removeH;if(i!==undefined){state.holidays.splice(Number(i),1);persist()}});
+$('#exportBtn').addEventListener('click',()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='copia-oposicion-psicologia.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+$('#importFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=JSON.parse(r.result);persist();alert('Datos importados correctamente.')}catch(err){alert('El archivo no es válido.')}};r.readAsText(f)});
+$('#resetBtn').addEventListener('click',()=>{if(confirm('¿Borrar todos los cambios?')){state=initial();persist()}});
+render();
+})();
+</script>
+</body>
+</html>
